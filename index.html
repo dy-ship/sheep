@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>羊了个羊 · H5（带道具）</title>
+  <style>
+    :root {
+      --bg1: #0b1220;
+      --bg2: #111827;
+      --card: rgba(255,255,255,0.06);
+      --border: rgba(255,255,255,0.12);
+      --text: #e5e7eb;
+      --muted: #a1a1aa;
+    }
+    html, body { height: 100%; margin:0; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color: var(--text);
+      background: linear-gradient(180deg, var(--bg1), var(--bg2));
+      display: flex; align-items: stretch; justify-content: center;
+    }
+    .wrap { width: 100%; max-width: 440px; display:flex; flex-direction:column; padding:16px; gap:12px; }
+    .title { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+    .badges { display:flex; gap:6px; flex-wrap:wrap; }
+    .badge { background: rgba(15,23,42,0.7); border:1px solid var(--border); color:#fff; padding:2px 8px; border-radius:999px; font-size:12px; }
+    .desc { color: #cbd5e1; font-size: 12px; line-height: 1.6; opacity:.9 }
+    .board {
+      position: relative;
+      margin: 0 auto;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: rgba(2,6,23,0.35);
+      box-shadow: 0 18px 40px rgba(0,0,0,.45);
+      overflow:hidden;
+    }
+    .tile {
+      position:absolute;
+      display:flex; align-items:center; justify-content:center;
+      background: linear-gradient(180deg, rgba(255,255,255,.95), rgba(240,240,240,.9));
+      color:#111; border-radius: 12px; box-shadow: 0 6px 16px rgba(0,0,0,.25);
+      user-select:none; cursor:pointer; transition: transform .08s ease, box-shadow .08s ease;
+      border: 1px solid rgba(0,0,0,0.05);
+    }
+    .tile.blocked { cursor:not-allowed; opacity: .6; }
+    .tile:hover { transform: scale(1.05); }
+    .slotbar { border: 1px solid var(--border); background: var(--card); border-radius: 18px; padding: 12px; }
+    .slotrow { display:flex; gap:8px; flex-wrap:wrap; min-height:64px; }
+    .slotbox { width:48px; height:48px; border-radius:10px; background:#fff; color:#111; display:flex; align-items:center; justify-content:center; border:1px solid #e5e7eb; }
+    .slotbox.empty { background: rgba(255,255,255,0.06); border: 1px dashed var(--border); }
+    .actions { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap; }
+    .btn { height:38px; padding:0 12px; border-radius: 18px; border:1px solid #d1d5db; background:#fff; color:#111; cursor:pointer; font-size:14px; }
+    .btn.ghost { background: transparent; color: #fff; border-color: var(--border); }
+    .btn.warn { background: #e11d48; border-color:#be123c; color:#fff; }
+    .btn:disabled { opacity:.55; cursor:not-allowed; }
+    .tips { font-size:11px; color:#94a3b8; line-height:1.5; }
+    .footer { font-size:11px; color:#64748b; }
+    .tools { display:flex; gap:8px; flex-wrap:wrap; }
+    .tool { background:#0f172a; border:1px solid var(--border); color:#fff; border-radius: 16px; height:36px; padding:0 10px; display:flex; align-items:center; gap:6px; cursor:pointer; }
+    .tool:disabled { opacity:.5; cursor:not-allowed; }
+    .tool .count { background:#111827; border:1px solid rgba(255,255,255,.08); padding:2px 6px; border-radius: 999px; font-size:12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div style="font-size:28px;">🐑</div>
+        <div style="font-weight:600; font-size:18px;">羊了个羊 · H5（带道具）</div>
+      </div>
+      <div class="badges" id="badges"></div>
+    </div>
+    <div class="desc">
+      规则：点选未被覆盖的方块放入下方槽位；任意三个相同图案会自动消除。槽位超过上限则失败，清空全部方块即过关。<br/>
+      道具：洗牌、自动三消、扩容栏位（详见下方）。
+    </div>
+    <div id="board" class="board"></div>
+    <div class="slotbar">
+      <div class="slotrow" id="slotrow"></div>
+      <div class="actions">
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn ghost" id="btn-undo">撤回一步</button>
+          <button class="btn ghost" id="btn-restart">重开本关</button>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <span id="stateText" class="tips"></span>
+          <button class="btn" id="btn-next" style="display:none;">下一关 ▶</button>
+          <button class="btn warn" id="btn-retry" style="display:none;">失败了，重试</button>
+        </div>
+      </div>
+    </div>
+    <div class="tools" id="tools"></div>
+    <div class="tips">小提示：优先清理覆盖层较高的方块；让槽位内的图案保持“成双成对”，避免孤立。</div>
+    <div class="footer">© Mini Game Demo — 仅用于学习/演示。</div>
+  </div>
+
+  <!-- React + ReactDOM + Babel (for single-file deploy) -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel">
+  const { useEffect, useMemo, useRef, useState } = React;
+
+  const TILE_TYPES = ["🍎","🍋","🍇","🍉","🥝","🍑","🍒","🥑","🍓","🍍","🥕","🌽","🍔","🍟","🍕","🌮","🍪","🍰"];
+
+  const DEFAULT_LEVELS = [
+    { boardW: 360, boardH: 480, tileSize: 52, layers: 3, density: 20, margin: 16 },
+    { boardW: 360, boardH: 480, tileSize: 52, layers: 4, density: 26, margin: 16 },
+  ];
+
+  const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+  const shuffle = (arr) => {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+  const overlaps = (a, b) => !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y);
+
+  function generateTiles(level, seed = Math.random()) {
+    const tiles = [];
+    const { boardW, boardH, tileSize, layers, margin } = level;
+    const w = tileSize, h = tileSize;
+    let target = level.density * layers;
+    target = Math.max(9, target - (target % 3));
+    let bag = [];
+    const types = shuffle(TILE_TYPES).slice(0, Math.min(TILE_TYPES.length, Math.ceil(target / 3)));
+    for (let i = 0; i < target / 3; i++) {
+      const t = types[i % types.length];
+      bag.push(t,t,t);
+    }
+    bag = shuffle(bag);
+    for (let L = 0; L < layers; L++) {
+      const perLayer = Math.round(target / layers);
+      for (let i = 0; i < perLayer && bag.length; i++) {
+        const type = bag.pop();
+        const pad = margin + (layers - L - 1) * 6;
+        const maxX = boardW - w - pad;
+        const maxY = boardH - h - pad;
+        const x = pad + Math.floor(Math.random() * (maxX - pad + 1));
+        const y = pad + Math.floor(Math.random() * (maxY - pad + 1));
+        tiles.push({
+          id: `${L}-${i}-${Math.random().toString(36).slice(2,7)}`,
+          type, x: x + (L*2), y: y + (L*2),
+          w, h, layer: L, removed: false, blockers: new Set(),
+        });
+      }
+    }
+    // blockers
+    for (let i=0;i<tiles.length;i++) for (let j=0;j<tiles.length;j++) {
+      if (i===j) continue;
+      const a=tiles[i], b=tiles[j];
+      if (b.layer > a.layer && overlaps(a,b)) a.blockers.add(b.id);
+    }
+    tiles.sort((a,b)=>a.layer-b.layer);
+    return tiles;
+  }
+
+  function useSound() {
+    const ctxRef = useRef(null);
+    const play = (freq=440, duration=.08) => {
+      try{
+        if(!ctxRef.current) ctxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+        const ctx = ctxRef.current;
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.type = "sine"; o.frequency.value = freq; g.gain.value = 0.05;
+        const t = ctx.currentTime; o.start(t); o.stop(t+duration);
+      }catch{}
+    };
+    return { play };
+  }
+
+  function App(){
+    const [levelIndex, setLevelIndex] = useState(0);
+    const [tiles, setTiles] = useState(()=>generateTiles(DEFAULT_LEVELS[0]));
+    const [slot, setSlot] = useState([]);
+    const [slotMax, setSlotMax] = useState(7);
+    const [status, setStatus] = useState("playing"); // playing | won | lost
+    const [moves, setMoves] = useState([]);
+    const [toolState, setToolState] = useState({
+      shuffle: 1,   // 洗牌：随机打乱剩余方块的位置，并重算遮挡
+      triple: 1,    // 自动三消：若存在≥3个可点同类，直接移除三张
+      expand: 1,    // 扩容栏位：槽位上限 +3（本关生效）
+    });
+    const { play } = useSound();
+    const boardRef = useRef(null);
+    const [scale, setScale] = useState(1);
+    const level = DEFAULT_LEVELS[Math.min(levelIndex, DEFAULT_LEVELS.length - 1)];
+
+    const removedIds = useMemo(()=> new Set(tiles.filter(t=>t.removed).map(t=>t.id)), [tiles]);
+    const isAvailable = (tile) => {
+      if (tile.removed) return false;
+      for (const b of tile.blockers) if (!removedIds.has(b)) return false;
+      return true;
+    };
+    const availableCount = tiles.filter(isAvailable).length;
+
+    useEffect(()=>{
+      if (status!=="playing") return;
+      const remaining = tiles.filter(t=>!t.removed).length;
+      if (remaining===0){
+        setStatus("won");
+        [220,330,440].forEach(f=>play(f, .14));
+      } else if (slot.length > slotMax){
+        setStatus("lost");
+        play(120, .25);
+      }
+    }, [tiles, slot, slotMax, status]);
+
+    useEffect(()=>{
+      const onResize = () => {
+        if (!boardRef.current) return;
+        const parent = boardRef.current.parentElement;
+        const sw = parent.clientWidth / level.boardW;
+        const sh = (window.innerHeight - 220) / level.boardH;
+        setScale(Math.max(0.6, Math.min(sw, sh)));
+      };
+      onResize();
+      window.addEventListener("resize", onResize);
+      return () => window.removeEventListener("resize", onResize);
+    }, [level]);
+
+    const onPick = (tile) => {
+      if (status!=="playing") return;
+      if (!isAvailable(tile)) return;
+      play(600, .05);
+      const picked = {...tile};
+      setTiles(prev => prev.map(t => t.id===tile.id ? {...t, removed: true} : t));
+      setSlot(prev => {
+        const next = [...prev, picked];
+        const same = next.filter(t => t.type===picked.type);
+        if (same.length >= 3){
+          let removed = 0;
+          const after = [];
+          for (const s of next){
+            if (s.type===picked.type && removed < 3){ removed++; continue; }
+            after.push(s);
+          }
+          play(300,.08);
+          return after;
+        }
+        return next;
+      });
+      setMoves(m => [...m, { tileId: tile.id }]);
+    };
+
+    const undo = () => {
+      if (status!=="playing") return;
+      const last = moves[moves.length - 1];
+      if (!last) return;
+      const lastTileId = last.tileId;
+      setSlot(prev => prev.slice(0,-1));
+      setTiles(prev => prev.map(t => t.id===lastTileId ? {...t, removed:false} : t));
+      setMoves(m => m.slice(0,-1));
+      play(500,.06);
+    };
+
+    const restartLevel = () => {
+      setStatus("playing");
+      setSlot([]);
+      setMoves([]);
+      setSlotMax(7);
+      setToolState({ shuffle:1, triple:1, expand:1 });
+      setTiles(generateTiles(level));
+    };
+
+    const nextLevel = () => {
+      const next = Math.min(levelIndex + 1, DEFAULT_LEVELS.length - 1);
+      setLevelIndex(next);
+      setStatus("playing");
+      setSlot([]);
+      setMoves([]);
+      setSlotMax(7);
+      setToolState({ shuffle:1, triple:1, expand:1 });
+      setTiles(generateTiles(DEFAULT_LEVELS[next]));
+    };
+
+    // --- Tools ---
+    const useShuffle = () => {
+      if (toolState.shuffle<=0 || status!=="playing") return;
+      // shuffle positions within each layer, keep layer, then recompute blockers
+      const byLayer = new Map();
+      tiles.forEach(t=>{
+        if (t.removed) return;
+        if (!byLayer.has(t.layer)) byLayer.set(t.layer, []);
+        byLayer.get(t.layer).push(t);
+      });
+      const newTiles = tiles.map(t=>({...t, blockers:new Set([...t.blockers])}));
+      byLayer.forEach(arr=>{
+        const xs = shuffle(arr.map(t=>t.x));
+        const ys = shuffle(arr.map(t=>t.y));
+        arr.forEach((t,i)=>{
+          const nt = newTiles.find(z=>z.id===t.id);
+          nt.x = xs[i]; nt.y = ys[i];
+        });
+      });
+      // recompute blockers
+      newTiles.forEach(t=> t.blockers = new Set());
+      for (let i=0;i<newTiles.length;i++) for (let j=0;j<newTiles.length;j++){
+        if (i===j) continue;
+        const a=newTiles[i], b=newTiles[j];
+        if (b.layer>a.layer && !b.removed && !a.removed && overlaps(a,b)) a.blockers.add(b.id);
+      }
+      setTiles(newTiles);
+      setToolState(s=>({...s, shuffle: s.shuffle-1}));
+      play(260,.12);
+    };
+
+    const useTriple = () => {
+      if (toolState.triple<=0 || status!=="playing") return;
+      // find any type with >=3 available tiles
+      const avail = tiles.filter(isAvailable);
+      const byType = new Map();
+      avail.forEach(t=>{
+        if (!byType.has(t.type)) byType.set(t.type, []);
+        byType.get(t.type).push(t);
+      });
+      let targetType = null;
+      byType.forEach((arr, type)=>{
+        if (!targetType && arr.length >= 3) targetType = type;
+      });
+      if (!targetType) {
+        // fallback: choose any type with most available and try remove 3 from anywhere ignoring block (magic)
+        const counts = new Map();
+        tiles.forEach(t=>{ if (!t.removed){ counts.set(t.type, (counts.get(t.type)||0)+1); } });
+        let maxType=null, maxCnt=0;
+        counts.forEach((c, tp)=>{ if (c>maxCnt){maxCnt=c; maxType=tp;} });
+        targetType = maxType;
+      }
+      if (!targetType) return;
+      const toRemove = [];
+      for (const t of tiles) {
+        if (!t.removed && t.type===targetType) { toRemove.push(t.id); if (toRemove.length===3) break; }
+      }
+      if (toRemove.length<3) return;
+      setTiles(prev => prev.map(t => toRemove.includes(t.id) ? {...t, removed:true} : t));
+      // also clear up to 3 same-type from slot if present (optional nice effect)
+      setSlot(prev => {
+        let removed = 0;
+        const after = [];
+        for (const s of prev){
+          if (s.type===targetType && removed < 3){ removed++; continue; }
+          after.push(s);
+        }
+        return after;
+      });
+      setToolState(s=>({...s, triple: s.triple-1}));
+      play(300,.12);
+    };
+
+    const useExpand = () => {
+      if (toolState.expand<=0 || status!=="playing") return;
+      setSlotMax(m => m + 3);
+      setToolState(s=>({...s, expand: s.expand-1}));
+      play(340,.12);
+    };
+
+    // badges
+    useEffect(()=>{
+      const badges = document.getElementById("badges");
+      badges.innerHTML = "";
+      const mk = (txt) => {
+        const el = document.createElement("span");
+        el.className = "badge";
+        el.textContent = txt;
+        return el;
+      };
+      badges.appendChild(mk(`关卡 ${Math.min(levelIndex+1, DEFAULT_LEVELS.length)}`));
+      badges.appendChild(mk(`可点 ${tiles.filter(isAvailable).length}`));
+      badges.appendChild(mk(`槽位 ${slot.length}/${slotMax}`));
+    }, [levelIndex, tiles, slot, slotMax]);
+
+    // state text & buttons
+    useEffect(()=>{
+      const stateText = document.getElementById("stateText");
+      const nextBtn = document.getElementById("btn-next");
+      const retryBtn = document.getElementById("btn-retry");
+      nextBtn.style.display = "none";
+      retryBtn.style.display = "none";
+      if (status==="playing"){
+        stateText.textContent = "";
+      } else if (status==="won"){
+        stateText.textContent = "通关！";
+        nextBtn.style.display = "inline-block";
+      } else {
+        stateText.textContent = "失败了";
+        retryBtn.style.display = "inline-block";
+      }
+    }, [status]);
+
+    // bind basic buttons
+    useEffect(()=>{
+      document.getElementById("btn-undo").onclick = undo;
+      document.getElementById("btn-restart").onclick = restartLevel;
+      document.getElementById("btn-next").onclick = nextLevel;
+      document.getElementById("btn-retry").onclick = restartLevel;
+    });
+
+    // render board & slot using React portals into existing nodes
+    const boardStyle = { width: level.boardW * scale + "px", height: level.boardH * scale + "px" };
+    useEffect(()=>{
+      const board = document.getElementById("board");
+      if (board){
+        board.style.width = boardStyle.width;
+        board.style.height = boardStyle.height;
+      }
+    }, [boardStyle.width, boardStyle.height]);
+
+    // render tools
+    useEffect(()=>{
+      const tools = document.getElementById("tools");
+      tools.innerHTML = "";
+      const makeTool = (label, key, handler) => {
+        const btn = document.createElement("button");
+        btn.className = "tool";
+        btn.onclick = handler;
+        if (toolState[key] <= 0) btn.disabled = true;
+        btn.innerHTML = `<span>${label}</span><span class="count">×${toolState[key]}</span>`;
+        tools.appendChild(btn);
+      };
+      makeTool("🔀 洗牌", "shuffle", useShuffle);
+      makeTool("✨ 自动三消", "triple", useTriple);
+      makeTool("🧺 扩容栏位", "expand", useExpand);
+    }, [toolState, status, tiles, slot]);
+
+    return (
+      <div ref={boardRef} style={{display:"contents"}}>
+        {/* Tiles */}
+        {tiles.map(t => {
+          const style = {
+            left: t.x * scale + "px",
+            top: t.y * scale + "px",
+            width: (t.w * scale) + "px",
+            height: (t.h * scale) + "px",
+            zIndex: (t.layer + 1),
+            transform: `translateZ(${t.layer}px)`,
+            display: t.removed ? "none" : "flex",
+          };
+          const avail = isAvailable(t);
+          const cls = "tile " + (avail ? "" : "blocked");
+          return (
+            <div key={t.id} className={cls} style={style} onClick={()=>onPick(t)}>
+              <div style={{fontSize: (22*scale) + "px", transform:"translateY(-1px)"}}>{t.type}</div>
+            </div>
+          );
+        })}
+
+        {/* Slot */}
+        <div id="slotrow-react" style={{display:"contents"}}>
+          {slot.map((s, idx) => (
+            <div key={s.id + "-slot-" + idx} className="slotbox">
+              <div style={{fontSize:"22px"}}>{s.type}</div>
+            </div>
+          ))}
+          {Array.from({length: Math.max(0, (slotMax+1) - slot.length)}).map((_,i)=>(
+            <div key={"empty-"+i} className="slotbox empty"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById("board")).render(<App/>);
+  // Hydrate slot row by moving React nodes into the slot container
+  const observer = new MutationObserver(()=>{
+    const slotContainer = document.getElementById("slotrow");
+    const reactNodes = document.querySelectorAll("#slotrow-react > *");
+    if (slotContainer && reactNodes.length){
+      slotContainer.innerHTML = "";
+      reactNodes.forEach(n => slotContainer.appendChild(n));
+    }
+  });
+  observer.observe(document.body, { childList:true, subtree:true });
+  </script>
+</body>
+</html>

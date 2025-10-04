@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>dyu 的个人博客</title>
+  <meta name="description" content="记录电商、自动化脚本与个人成长的实践笔记" />
+  <style>
+    :root {
+      --bg:#0b0c10; --card:#121419; --muted:#8892b0; --fg:#e6f1ff; --acc:#64ffda;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", Segoe UI, Roboto, Helvetica, Arial; background:var(--bg); color:var(--fg); }
+    header { padding:48px 20px; text-align:center; background:linear-gradient(180deg, rgba(100,255,218,0.08), transparent); }
+    header h1 { margin:0 0 8px; font-size:32px; }
+    header p { margin:0; color:var(--muted); }
+    main { max-width:860px; margin:32px auto; padding:0 20px; }
+    article { background:var(--card); border:1px solid rgba(255,255,255,0.06); border-radius:16px; padding:28px; line-height:1.75; }
+    article h2 { margin-top:0; font-size:24px; }
+    a { color:var(--acc); text-decoration:none; }
+    a:hover { text-decoration:underline; }
+    .meta { color:var(--muted); font-size:14px; margin:-4px 0 16px; }
+    footer { max-width:860px; margin:40px auto 80px; padding:0 20px; color:var(--muted); }
+    .cta { display:inline-block; margin-top:16px; padding:10px 14px; border:1px solid var(--acc); border-radius:12px; }
+    .comments { margin-top:28px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>dyu 的个人博客</h1>
+    <p>记录电商实践、自动化脚本与个人成长</p>
+  </header>
+  <main>
+    <article>
+      <h2>写在博客开篇：把想法变成作品</h2>
+      <div class="meta">发布于 <time>2025-09-22</time> · <a href="#disqus_thread" data-disqus-identifier="home">评论</a></div>
+      <p>在这个博客里，我想记录一个普通人用数字工具改善生活的全过程：从想法的出现，到把它做成可以运行的小产品，再到上线、推广、复盘。我并不是科班出身，也没有复杂的团队与资源，所以这里写下的每一步，都尽量保持朴素可复用：为啥要做、怎么开始、遇到的坑、如何解决，以及最后学到了什么。我相信“把想法落地”的能力，比“拥有宏大计划”更稀缺。我们常常因为不完美而迟疑，因为害怕失败而停下脚步；可真正的成长，恰恰发生在动手的细节里。</p><p>我也会分享电商运营的一线经验，比如如何做利润测算、怎样设计产品图、如何理解用户评价。我的方法可能不完美，但是真实有效——它们来自一次次订单数据的反馈，也来自和用户反复沟通后的迭代。除此之外，我还会写一些个人兴趣：加密资产的长期逻辑、简单的自动化脚本、以及在日本生活的小发现。</p><p>如果你也在搭建个人品牌、做小生意、或者学习编程，希望这里能给你一点启发：先从最小可行版本开始，把问题拆小；把笔记写清楚、把版本管理好；遇到阻碍就记录下来，哪怕只是几行命令。等过段时间回头看，你会发现这些“微小的推进”正在悄悄改变你。谢谢你来到这里，也欢迎在评论区交流你的故事与问题，让我们一起把想法变成作品。愿我们都能在不断尝试中找到自己的节奏。</p>
+      <a class="cta" href="mailto:dyu87414@gmail.com">联系我：dyu87414@gmail.com</a>
+      <div class="comments">
+        <h3>评论区</h3>
+        <div id="disqus_thread"></div>
+      </div>
+    </article>
+  </main>
+  <footer>
+    <small>© 2025 dyu · 由静态页面驱动</small>
+    <script>
+      // Disqus 通用嵌入（站点 shortname: dyublog）
+      var disqus_config = function () {
+        this.page.url = window.location.href;
+        this.page.identifier = "home";
+      };
+      (function() {
+        var d = document, s = d.createElement('script');
+        s.src = 'https://dyublog.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+      })();
+    </script>
+    <noscript>请开启 JavaScript 以查看 <a href="https://disqus.com/">Disqus 评论</a>。</noscript>
+    <script id="dsq-count-scr" src="//dyublog.disqus.com/count.js" async></script>
+  
+  <section id="comments" class="section">
+    <h3 class="section-title">评论区</h3>
+    <div id="disqus_thread"></div>
+  </section>
+
+  <script>
+    var disqus_config = function () {
+      this.page.url = window.location.href;  // 页面链接
+      this.page.identifier = document.title; // 页面唯一标识
+    };
+    (function() {
+      var d = document, s = d.createElement('script');
+      s.src = 'https://dyu.disqus.com/embed.js';  // 使用 dyu shortname
+      s.setAttribute('data-timestamp', +new Date());
+      (d.head || d.body).appendChild(s);
+    })();
+  </script>
+  <noscript>请开启 JavaScript 以查看 
+    <a href="https://disqus.com/?ref_noscript">Disqus 评论</a>
+  </noscript>
+  <script id="dsq-count-scr" src="//dyu.disqus.com/count.js" async></script>
+
+</footer>
+</body>
+</html>
