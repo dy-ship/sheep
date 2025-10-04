@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>羊了个羊 · 动画版（兼容安全）</title>
+  <style>
+    :root { --bg1:#0b1220; --bg2:#111827; --card:rgba(255,255,255,.06); --border:rgba(255,255,255,.12); --text:#e5e7eb; }
+    *{box-sizing:border-box}
+    html, body { height:100%; margin:0; background: linear-gradient(180deg, var(--bg1), var(--bg2)); color:var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;}
+    .wrap{ max-width:460px; margin:0 auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
+    .title{display:flex; justify-content:space-between; align-items:center}
+    .badge{background:rgba(15,23,42,.7); border:1px solid var(--border); padding:2px 8px; border-radius:999px; font-size:12px; margin-left:6px}
+    .board{ position:relative; border:1px solid var(--border); border-radius:18px; background:rgba(2,6,23,.35); box-shadow:0 18px 40px rgba(0,0,0,.45); overflow:hidden; margin:0 auto;}
+    .tile{ position:absolute; display:flex; align-items:center; justify-content:center; background:linear-gradient(180deg,#fff,#f0f0f0);
+           color:#111; border-radius:12px; box-shadow:0 6px 16px rgba(0,0,0,.25); user-select:none; cursor:pointer; border:1px solid rgba(0,0,0,.05);
+           transform-origin:center; transition: transform .12s ease }
+    .tile.blocked{opacity:.6; cursor:not-allowed}
+    .tile.appear{ animation: dropIn .35s ease both }
+    .tile.click{ animation: tap .18s ease }
+    .tile.glow{ box-shadow:0 0 0 3px rgba(255,255,255,.8), 0 8px 18px rgba(0,0,0,.35) }
+    .slotbar{ border:1px solid var(--border); background:var(--card); border-radius:18px; padding:12px; }
+    .slotrow{ display:flex; gap:8px; flex-wrap:wrap; min-height:64px; }
+    .slotbox{ width:48px; height:48px; border-radius:10px; background:#fff; color:#111; display:flex; align-items:center; justify-content:center; border:1px solid #e5e7eb; transform-origin:center }
+    .slotbox.pop{ animation: pop .22s ease }
+    .slotbox.flash{ animation: flash .4s ease }
+    .slotbox.empty{ background: rgba(255,255,255,.06); border:1px dashed var(--border); }
+    .actions{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap }
+    .btn{ height:38px; padding:0 12px; border-radius:18px; border:1px solid #d1d5db; background:#fff; color:#111; cursor:pointer; font-size:14px }
+    .btn.ghost{ background:transparent; color:#fff; border-color:var(--border) }
+    .btn.warn{ background:#e11d48; border-color:#be123c; color:#fff }
+    .btn:disabled{ opacity:.55; cursor:not-allowed }
+    .tools{ display:flex; gap:8px; flex-wrap:wrap }
+    .tool{ background:#0f172a; border:1px solid var(--border); color:#fff; border-radius:16px; height:36px; padding:0 10px; display:flex; align-items:center; gap:6px; cursor:pointer; transform-origin:center }
+    .tool .count{ background:#111827; border:1px solid rgba(255,255,255,.08); padding:2px 6px; border-radius:999px; font-size:12px }
+    .tool.pulse{ animation: pulse 1.5s ease infinite }
+    .desc{ font-size:12px; color:#cbd5e1 }
+    .overlay{ position:absolute; inset:0; background:rgba(2,6,23,.55); display:none; align-items:center; justify-content:center; }
+    .overlay.show{ display:flex; animation: fadeIn .25s ease }
+    .card{ background:#0b1220; border:1px solid var(--border); padding:16px 18px; border-radius:16px; text-align:center; box-shadow:0 18px 40px rgba(0,0,0,.5) }
+    .card h3{ margin:0; font-size:18px }
+    .card p{ margin:.5em 0 0; font-size:12px; color:#cbd5e1 }
+    .error{ position:fixed; left:0; right:0; bottom:0; background:#fee2e2; color:#7f1d1d; padding:8px 12px; font-size:12px; border-top:1px solid #fecaca; display:none }
+    /* keyframes */
+    @keyframes dropIn{ from{ transform: translateY(-12px); opacity:0 } to{ transform: translateY(0); opacity:1 } }
+    @keyframes tap{ 0%{transform:scale(.96)} 60%{transform:scale(1.06)} 100%{transform:scale(1)} }
+    @keyframes pop{ 0%{transform:scale(.7)} 60%{transform:scale(1.08)} 100%{transform:scale(1)} }
+    @keyframes flash{ 0%{filter:brightness(1)} 50%{filter:brightness(1.6)} 100%{filter:brightness(1)} }
+    @keyframes pulse{ 0%{transform:scale(1)} 50%{transform:scale(1.04)} 100%{transform:scale(1)} }
+    @keyframes confetti{ 0%{ transform: translateY(0) rotate(0); opacity:1 } 100%{ transform: translateY(40px) rotate(180deg); opacity:0 } }
+    @keyframes fadeIn{ from{ opacity:0 } to{ opacity:1 } }
+    .confetti{ position:absolute; width:10px; height:10px; border-radius:2px; background:#fff; pointer-events:none; animation: confetti .8s ease forwards }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div style="font-size:28px">🐑</div>
+        <div style="font-weight:600; font-size:18px">羊了个羊 · 动画版</div>
+        <span id="badge1" class="badge"></span>
+        <span id="badge2" class="badge"></span>
+        <span id="badge3" class="badge"></span>
+      </div>
+    </div>
+    <div class="desc">点击未被覆盖的方块入槽；三同消。道具：洗牌 / 自动三消 / 扩容。已加入动画效果与结果浮层。</div>
+    <div style="position:relative">
+      <div id="board" class="board"></div>
+      <div id="overlay" class="overlay">
+        <div class="card">
+          <h3 id="ov-title"></h3>
+          <p id="ov-sub"></p>
+        </div>
+      </div>
+    </div>
+    <div class="slotbar">
+      <div id="slotrow" class="slotrow"></div>
+      <div class="actions">
+        <div>
+          <button class="btn ghost" id="btn-undo">撤回一步</button>
+          <button class="btn ghost" id="btn-restart">重开本关</button>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <span id="stateText" class="desc"></span>
+          <button class="btn" id="btn-next" style="display:none">下一关 ▶</button>
+          <button class="btn warn" id="btn-retry" style="display:none">失败了，重试</button>
+        </div>
+      </div>
+    </div>
+    <div id="tools" class="tools"></div>
+  </div>
+  <div id="error" class="error"></div>
+
+  <script>
+  (function(){
+    function showErr(msg){
+      var el = document.getElementById('error');
+      el.textContent = '⚠️ 脚本错误：' + msg;
+      el.style.display = 'block';
+    }
+    try{
+      var TILE_TYPES = ["🍎","🍋","🍇","🍉","🥝","🍑","🍒","🥑","🍓","🍍","🥕","🌽","🍔","🍟","🍕","🌮","🍪","🍰"];
+      var LEVELS = [
+        { W:360, H:480, size:52, layers:3, density:20, margin:16 },
+        { W:360, H:480, size:52, layers:4, density:26, margin:16 },
+      ];
+      var board = document.getElementById('board');
+      var overlay = document.getElementById('overlay');
+      var ovTitle = document.getElementById('ov-title');
+      var ovSub = document.getElementById('ov-sub');
+      var slotrow = document.getElementById('slotrow');
+      var badge1 = document.getElementById('badge1');
+      var badge2 = document.getElementById('badge2');
+      var badge3 = document.getElementById('badge3');
+      var stateText = document.getElementById('stateText');
+      var btnUndo = document.getElementById('btn-undo');
+      var btnRestart = document.getElementById('btn-restart');
+      var btnNext = document.getElementById('btn-next');
+      var btnRetry = document.getElementById('btn-retry');
+      var tools = document.getElementById('tools');
+
+      var levelIndex = 0, tiles = [], slot = [], slotMax = 7, status = 'playing', moves = [];
+      var toolState = { shuffle:1, triple:1, expand:1 };
+      var scale = 1;
+
+      function shuffle(a){ var arr=a.slice(); for(var i=arr.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=arr[i]; arr[i]=arr[j]; arr[j]=t; } return arr; }
+      function overlaps(a,b){ return !(a.x+a.w<=b.x || b.x+b.w<=a.x || a.y+a.h<=b.y || b.y+b.h<=a.y); }
+      function generateTiles(level){
+        var res=[], W=level.W,H=level.H,size=level.size,layers=level.layers,margin=level.margin;
+        var target = level.density * layers; target = Math.max(9, target - (target % 3));
+        var bag=[], types = shuffle(TILE_TYPES).slice(0, Math.min(TILE_TYPES.length, Math.ceil(target/3)));
+        for (var i=0;i<target/3;i++){ var t=types[i%types.length]; bag.push(t,t,t); }
+        bag = shuffle(bag);
+        for (var L=0; L<layers; L++){
+          var per = Math.round(target/layers);
+          for (var i=0; i<per && bag.length; i++){
+            var type = bag.pop();
+            var pad = margin + (layers - L - 1) * 6;
+            var maxX = W - size - pad;
+            var maxY = H - size - pad;
+            var x = pad + Math.floor(Math.random() * (maxX - pad + 1));
+            var y = pad + Math.floor(Math.random() * (maxY - pad + 1));
+            res.push({ id: (L+'-'+i+'-'+Math.random().toString(36).slice(2,7)), type:type, x:x+(L*2), y:y+(L*2), w:size, h:size, layer:L, removed:false, blockers:[] });
+          }
+        }
+        // blockers
+        for (var a=0;a<res.length;a++){
+          res[a].blockers = [];
+          for (var b=0;b<res.length;b++){
+            if (a===b) continue;
+            if (res[b].layer > res[a].layer && overlaps(res[a], res[b])) res[a].blockers.push(res[b].id);
+          }
+        }
+        res.sort(function(a,b){ return a.layer-b.layer; });
+        return res;
+      }
+      function isAvailable(t){
+        if (t.removed) return false;
+        for (var i=0;i<t.blockers.length;i++){ var bid=t.blockers[i]; var bb = findTile(bid); if (bb && !bb.removed) return false; }
+        return true;
+      }
+      function findTile(id){ for (var i=0;i<tiles.length;i++){ if (tiles[i].id===id) return tiles[i]; } return null; }
+      function renderBadges(){
+        badge1.textContent = '关卡 ' + Math.min(levelIndex+1, LEVELS.length);
+        var avail = 0; for (var i=0;i<tiles.length;i++){ if (isAvailable(tiles[i])) avail++; }
+        badge2.textContent = '可点 ' + avail;
+        badge3.textContent = '槽位 ' + slot.length + '/' + slotMax;
+      }
+      function layoutScale(){
+        var L = LEVELS[Math.min(levelIndex, LEVELS.length-1)];
+        var sw = board.parentElement.clientWidth / L.W;
+        var sh = (window.innerHeight - 240) / L.H;
+        scale = Math.max(0.6, Math.min(sw, sh));
+        board.style.width = (L.W*scale)+'px';
+        board.style.height = (L.H*scale)+'px';
+      }
+      function tileDiv(t){
+        var div = document.createElement('div');
+        div.className = 'tile appear' + (isAvailable(t) ? '' : ' blocked');
+        div.style.left = (t.x*scale)+'px';
+        div.style.top = (t.y*scale)+'px';
+        div.style.width = (t.w*scale)+'px';
+        div.style.height = (t.h*scale)+'px';
+        div.style.zIndex = (t.layer+1);
+        div.style.fontSize = (22*scale)+'px';
+        div.appendChild(document.createTextNode(t.type));
+        div.addEventListener('click', function(){
+          try{
+            if (status!=='playing') return;
+            div.classList.add('click');
+            onPick(t.id);
+          }catch(e){ showErr(e.message||e); }
+        }, false);
+        return div;
+      }
+      function renderBoard(){
+        layoutScale();
+        while (board.firstChild) board.removeChild(board.firstChild);
+        for (var i=0;i<tiles.length;i++){
+          var t = tiles[i];
+          if (t.removed) continue;
+          board.appendChild(tileDiv(t));
+        }
+      }
+      function renderSlot(popIndex){
+        while (slotrow.firstChild) slotrow.removeChild(slotrow.firstChild);
+        for (var i=0;i<slot.length;i++){
+          var d=document.createElement('div'); d.className='slotbox';
+          if (i===popIndex) d.classList.add('pop');
+          d.appendChild(document.createTextNode(slot[i].type)); slotrow.appendChild(d);
+        }
+        var empties = Math.max(0, (slotMax+1) - slot.length);
+        for (var k=0;k<empties;k++){ var e=document.createElement('div'); e.className='slotbox empty'; slotrow.appendChild(e); }
+      }
+      function setStatus(s){
+        status = s; stateText.textContent=''; btnNext.style.display='none'; btnRetry.style.display='none';
+        overlay.classList.remove('show');
+        if (s==='won'){ stateText.textContent='通关！'; btnNext.style.display='inline-block'; overlayShow('通关！','太棒了，继续挑战下一关吧'); }
+        else if (s==='lost'){ stateText.textContent='失败了'; btnRetry.style.display='inline-block'; overlayShow('失败了','再试一次，试试道具或调整策略'); }
+      }
+      function overlayShow(title, sub){
+        ovTitle.textContent = title; ovSub.textContent = sub;
+        overlay.classList.add('show');
+      }
+      function confettiAt(x,y,count){
+        for (var i=0;i<count;i++){
+          var p = document.createElement('div');
+          p.className = 'confetti';
+          p.style.left = x + (Math.random()*30-15) + 'px';
+          p.style.top  = y + (Math.random()*10-5) + 'px';
+          p.style.background = 'hsl(' + Math.floor(Math.random()*360) + ',80%,60%)';
+          p.style.transform = 'translateY(0)';
+          p.style.opacity = '1';
+          p.style.position = 'absolute';
+          board.appendChild(p);
+          (function(el){ setTimeout(function(){ if (el && el.parentNode) el.parentNode.removeChild(el); }, 900); })(p);
+        }
+      }
+      function checkEnd(){
+        if (status!=='playing') return;
+        var remaining = 0; for (var i=0;i<tiles.length;i++){ if (!tiles[i].removed) remaining++; }
+        if (remaining===0) setStatus('won');
+        else if (slot.length > slotMax) setStatus('lost');
+      }
+      function onPick(id){
+        var t = findTile(id);
+        if (!t || t.removed || !isAvailable(t)) return;
+        t.removed = true;
+        slot.push({ id:t.id, type:t.type });
+        moves.push({ tileId:t.id });
+        renderSlot(slot.length-1); // pop animation for last
+        // 3-match detection
+        var count = 0; for (var i=0;i<slot.length;i++) if (slot[i].type===t.type) count++;
+        if (count>=3){
+          // flash effect on current slot of same type
+          var flashed = 0;
+          var children = slotrow.children;
+          for (var j=0;j<children.length && flashed<3;j++){
+            if (slot[j] && slot[j].type===t.type){
+              children[j].classList.add('flash');
+              flashed++;
+            }
+          }
+          // remove 3 after short delay to show flash
+          setTimeout(function(){
+            var removed=0, newSlot=[];
+            for (var k=0;k<slot.length;k++){
+              var s=slot[k];
+              if (s.type===t.type && removed<3){ removed++; continue; }
+              newSlot.push(s);
+            }
+            slot = newSlot;
+            renderSlot(-1);
+            // small confetti where click happened (approximate at tile position)
+            confettiAt(t.x*scale + t.w*scale/2, t.y*scale + t.h*scale/2, 10);
+          }, 160);
+        }
+        recomputeBlockers();
+        renderBadges(); renderBoard(); checkEnd();
+      }
+      function recomputeBlockers(){
+        for (var i=0;i<tiles.length;i++){ tiles[i].blockers=[]; }
+        for (var a=0;a<tiles.length;a++){
+          var ta=tiles[a]; if (ta.removed) continue;
+          for (var b=0;b<tiles.length;b++){
+            if (a===b) continue;
+            var tb=tiles[b]; if (tb.removed) continue;
+            if (tb.layer>ta.layer && overlaps(ta,tb)) ta.blockers.push(tb.id);
+          }
+        }
+      }
+      function undo(){
+        if (status!=='playing') return;
+        var last = moves[moves.length-1]; if (!last) return;
+        moves.pop();
+        for (var i=slot.length-1;i>=0;i--){ if (slot[i].id===last.tileId){ slot.splice(i,1); break; } }
+        var tile = findTile(last.tileId); if (tile) tile.removed=false;
+        recomputeBlockers(); renderSlot(-1); renderBadges(); renderBoard();
+      }
+      function restart(){
+        setStatus('playing'); slot=[]; moves=[]; slotMax=7; toolState={shuffle:1,triple:1,expand:1};
+        tiles = generateTiles(LEVELS[Math.min(levelIndex, LEVELS.length-1)]);
+        renderAll();
+      }
+      function nextLevel(){ levelIndex = Math.min(levelIndex+1, LEVELS.length-1); restart(); }
+
+      // tools
+      function renderTools(){
+        tools.innerHTML='';
+        function mk(label, key, handler){
+          var b=document.createElement('button'); b.className='tool pulse'; b.innerHTML='<span>'+label+'</span><span class="count">×'+toolState[key]+'</span>';
+          b.disabled = (toolState[key]<=0 || status!=='playing');
+          b.onclick = function(){ try{ handler(); }catch(e){ showErr(e.message||e); } };
+          tools.appendChild(b);
+        }
+        mk('🔀 洗牌', 'shuffle', function(){
+          if (toolState.shuffle<=0 || status!=='playing') return;
+          for (var i=0;i<tiles.length;i++){
+            var t=tiles[i]; if (t.removed) continue;
+            t.x += Math.floor((Math.random()*21)-10); t.y += Math.floor((Math.random()*21)-10);
+            if (t.x<8) t.x=8; if (t.y<8) t.y=8;
+          }
+          toolState.shuffle--; recomputeBlockers(); renderAll();
+        });
+        mk('✨ 自动三消', 'triple', function(){
+          if (toolState.triple<=0 || status!=='playing') return;
+          var avail={}, chosen=null;
+          for (var i=0;i<tiles.length;i++){ var t=tiles[i]; if (!t.removed && isAvailable(t)){ avail[t.type]=(avail[t.type]||0)+1; if (!chosen && avail[t.type]>=3) chosen=t.type; } }
+          if (!chosen){
+            var totals={}, maxTp=null, maxCnt=0;
+            for (var j=0;j<tiles.length;j++){ var tt=tiles[j]; if (!tt.removed){ totals[tt.type]=(totals[tt.type]||0)+1; if (totals[tt.type]>maxCnt){maxCnt=totals[tt.type]; maxTp=tt.type;} } }
+            chosen = maxTp;
+          }
+          if (!chosen) return;
+          // glow tiles briefly
+          for (var k=0;k<tiles.length;k++){ var x=tiles[k]; if (!x.removed && x.type===chosen){ /* mark later */ } }
+          // remove 3 with confetti
+          var removed=0;
+          for (var m=0;m<tiles.length;m++){ var y=tiles[m]; if (!y.removed && y.type===chosen){ y.removed=true; confettiAt(y.x*scale + y.w*scale/2, y.y*scale + y.h*scale/2, 6); removed++; if (removed===3) break; } }
+          // slot clean
+          var sr=0, ns=[]; for (var s=0;s<slot.length;s++){ var u=slot[s]; if (u.type===chosen && sr<3){sr++; continue;} ns.push(u); } slot = ns;
+          toolState.triple--; recomputeBlockers(); renderAll(); checkEnd();
+        });
+        mk('🧺 扩容栏位', 'expand', function(){ if (toolState.expand<=0 || status!=='playing') return; slotMax+=3; toolState.expand--; renderAll(); });
+      }
+
+      function renderAll(){ renderBoard(); renderSlot(-1); renderBadges(); renderTools(); }
+
+      btnUndo.onclick = function(){ try{ undo(); }catch(e){ showErr(e.message||e); } };
+      btnRestart.onclick = function(){ try{ restart(); }catch(e){ showErr(e.message||e); } };
+      btnRetry.onclick = function(){ try{ restart(); }catch(e){ showErr(e.message||e); } };
+      btnNext.onclick = function(){ try{ nextLevel(); }catch(e){ showErr(e.message||e); } };
+      window.addEventListener('resize', function(){ try{ renderBoard(); }catch(e){ showErr(e.message||e); } });
+
+      // init
+      tiles = generateTiles(LEVELS[0]);
+      renderAll();
+    }catch(err){
+      showErr(err && (err.message || err));
+    }
+  })();
+  </script>
+</body>
+</html>
